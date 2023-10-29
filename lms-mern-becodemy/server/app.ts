@@ -27,4 +27,5 @@ app.all("*", (req: Request, res: Response, next: NextFunction) => {
   next(err);
 });
 
+// At the end use it this Error handler Middleware
 app.use(ErrorMiddleware);
