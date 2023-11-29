@@ -1,5 +1,7 @@
 import mongoose, { Document, Model, Schema } from "mongoose";
 import bcrypt from "bcryptjs"; // bcrypt is need to hashing our password
+require("dotenv").config();
+import jwt, { Secret } from "jsonwebtoken";
 
 // This is needed to validate the email format
 const emailRegexPattern: RegExp = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -18,6 +20,8 @@ export interface IUser extends Document {
   courses: Array<{ courseId: string }>; // Purchased courses by users
   comparePassword: (password: string) => Promise<boolean>;
   // isAdmin: boolean; // not needed
+  SignAccessToken: () => string;
+  SignRefreshToken: () => string;
 }
 
 // Declare the Schema of the Mongo model
@@ -41,7 +45,7 @@ const userSchema: Schema<IUser> = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: [true, "Please enter your password."],
+      // required: [true, "Please enter your password."], // In the case of social login might password you will not typed
       minlength: [6, "Password must be at least 6 characters."],
       select: false,
     },
@@ -75,6 +79,20 @@ userSchema.pre<IUser>("save", async function (next) {
   this.password = await bcrypt.hash(this.password, 10);
   next();
 });
+
+// Sign access token - access token will expire after a short time, like 5mints, it is for security purposes, to avoid hacking
+userSchema.methods.SignAccessToken = function () {
+  return jwt.sign({ id: this._id }, process.env.ACCESS_TOKEN || "", {
+    expiresIn: "5m",
+  }); // this is basically logged in user id this._id
+};
+
+// Sign Refresh token - whenever the access token is expire our refresh token will automatically generate the new access token so that we can access routes again
+userSchema.methods.SignRefreshToken = function () {
+  return jwt.sign({ id: this._id }, process.env.REFRESH_TOKEN || "", {
+    expiresIn: "3d",
+  }); // this is basically logged in user id this._id
+};
 
 // compare password
 userSchema.methods.comparePassword = async function (
